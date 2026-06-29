@@ -1,0 +1,37 @@
+name: CI/CD
+
+env:
+  ZIG_VERSION: 0.16.0
+
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    branches: [ master, dev ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{env.ZIG_VERSION}}
+
+      - name: Check zig version
+        run: zig version
+
+      - name: Build all
+        run: zig build
+
+      - name: Run tests on pull requests
+        if: github.event_name == 'pull_request'
+        env:
+          THREAD_POOL_COUNT: 50
+        run: zig build test --summary all
+
+      - name: Run tests on pushes
+        if: github.event_name != 'pull_request'
+        run: zig build test --summary all

@@ -311,6 +311,7 @@ const t = @import("t.zig");
 test "ThreadPool: batch add" {
     defer t.reset();
 
+    const thread_pool_count = t.threadPoolCount();
     const counts = [_]u32{ 1, 2, 3, 4, 5, 6 };
     const backlogs = [_]u32{ 1, 2, 3, 4, 5, 6 };
     for (counts) |count| {
@@ -326,23 +327,26 @@ test "ThreadPool: batch add" {
             var tp = try ThreadPool(testIncr).init(t.io, t.arena.allocator(), .{ .count = count, .backlog = backlog, .buffer_size = 512 });
             defer tp.deinit();
 
-            for (0..1_000) |_| {
+            for (0..thread_pool_count) |_| {
                 tp.spawn(.{1});
                 tp.spawn(.{2});
                 tp.spawn(.{3});
                 tp.spawn(.{4});
             }
+            if (tp.batch_size > 0) {
+                tp.flush(tp.batch_size);
+            }
             while (tp.empty() == false) {
                 try t.io.sleep(.fromMilliseconds(1), .awake);
             }
             tp.stop();
-            try t.expectEqual(10_000, testSum);
-            try t.expectEqual(4_000, testCount);
+            try t.expectEqual(@as(u64, 10) * thread_pool_count, testSum);
+            try t.expectEqual(@as(u64, 4) * thread_pool_count, testCount);
 
-            try t.expectEqual(1000, testC1);
-            try t.expectEqual(1000, testC2);
-            try t.expectEqual(1000, testC3);
-            try t.expectEqual(1000, testC4);
+            try t.expectEqual(thread_pool_count, testC1);
+            try t.expectEqual(thread_pool_count, testC2);
+            try t.expectEqual(thread_pool_count, testC3);
+            try t.expectEqual(thread_pool_count, testC4);
             try t.expectEqual(0, testC5);
             try t.expectEqual(0, testC6);
         }
@@ -352,6 +356,7 @@ test "ThreadPool: batch add" {
 test "ThreadPool: small fuzz" {
     defer t.reset();
 
+    const thread_pool_count = t.threadPoolCount();
     testSum = 0; // global defined near the end of this file
     testCount = 0; // global defined near the end of this file
     testC1 = 0;
@@ -363,20 +368,23 @@ test "ThreadPool: small fuzz" {
     var tp = try ThreadPool(testIncr).init(t.io, t.arena.allocator(), .{ .count = 3, .backlog = 3, .buffer_size = 512 });
     defer tp.deinit();
 
-    for (0..10_000) |_| {
+    for (0..thread_pool_count) |_| {
         tp.spawn(.{1});
         tp.spawn(.{2});
         tp.spawn(.{3});
+    }
+    if (tp.batch_size > 0) {
+        tp.flush(tp.batch_size);
     }
     while (tp.empty() == false) {
         try t.io.sleep(.fromMilliseconds(1), .awake);
     }
     tp.stop();
-    try t.expectEqual(60_000, testSum);
-    try t.expectEqual(30_000, testCount);
-    try t.expectEqual(10_000, testC1);
-    try t.expectEqual(10_000, testC2);
-    try t.expectEqual(10_000, testC3);
+    try t.expectEqual(@as(u64, 6) * thread_pool_count, testSum);
+    try t.expectEqual(@as(u64, 3) * thread_pool_count, testCount);
+    try t.expectEqual(thread_pool_count, testC1);
+    try t.expectEqual(thread_pool_count, testC2);
+    try t.expectEqual(thread_pool_count, testC3);
     try t.expectEqual(0, testC4);
     try t.expectEqual(0, testC5);
     try t.expectEqual(0, testC6);
@@ -385,6 +393,7 @@ test "ThreadPool: small fuzz" {
 test "ThreadPool: large fuzz" {
     defer t.reset();
 
+    const thread_pool_count = t.threadPoolCount();
     testSum = 0; // global defined near the end of this file
     testCount = 0; // global defined near the end of this file
     testC1 = 0;
@@ -396,7 +405,7 @@ test "ThreadPool: large fuzz" {
     var tp = try ThreadPool(testIncr).init(t.io, t.arena.allocator(), .{ .count = 50, .backlog = 1000, .buffer_size = 512 });
     defer tp.deinit();
 
-    for (0..10_000) |_| {
+    for (0..thread_pool_count) |_| {
         tp.spawn(.{1});
         tp.spawn(.{2});
         tp.spawn(.{3});
@@ -404,18 +413,21 @@ test "ThreadPool: large fuzz" {
         tp.spawn(.{5});
         tp.spawn(.{6});
     }
+    if (tp.batch_size > 0) {
+        tp.flush(tp.batch_size);
+    }
     while (tp.empty() == false) {
         try t.io.sleep(.fromMilliseconds(1), .awake);
     }
     tp.stop();
-    try t.expectEqual(210_000, testSum);
-    try t.expectEqual(60_000, testCount);
-    try t.expectEqual(10_000, testC1);
-    try t.expectEqual(10_000, testC2);
-    try t.expectEqual(10_000, testC3);
-    try t.expectEqual(10_000, testC4);
-    try t.expectEqual(10_000, testC5);
-    try t.expectEqual(10_000, testC6);
+    try t.expectEqual(@as(u64, 21) * thread_pool_count, testSum);
+    try t.expectEqual(@as(u64, 6) * thread_pool_count, testCount);
+    try t.expectEqual(thread_pool_count, testC1);
+    try t.expectEqual(thread_pool_count, testC2);
+    try t.expectEqual(thread_pool_count, testC3);
+    try t.expectEqual(thread_pool_count, testC4);
+    try t.expectEqual(thread_pool_count, testC5);
+    try t.expectEqual(thread_pool_count, testC6);
 }
 
 var testSum: u64 = 0;

@@ -63,6 +63,16 @@ pub fn main(init: std.process.Init) !void {
             }
         }
 
+        if (env.isExcluded(t.name)) {
+            skip += 1;
+            if (env.verbose) {
+                Printer.status(.skip, "{s}\n", .{t.name});
+            } else {
+                Printer.status(.skip, ".", .{});
+            }
+            continue;
+        }
+
         const friendly_name = blk: {
             const name = t.name;
             var it = std.mem.splitScalar(u8, name, '.');
@@ -246,12 +256,14 @@ const Env = struct {
     verbose: bool,
     fail_first: bool,
     filter: ?[]const u8,
+    exclude: ?[]const u8,
 
     fn init(map: *const std.process.Environ.Map) Env {
         return .{
             .verbose = readEnvBool(map, "TEST_VERBOSE", true),
             .fail_first = readEnvBool(map, "TEST_FAIL_FIRST", false),
             .filter = readEnv(map, "TEST_FILTER"),
+            .exclude = readEnv(map, "TEST_EXCLUDE"),
         };
     }
 
@@ -262,6 +274,21 @@ const Env = struct {
     fn readEnvBool(map: *const std.process.Environ.Map, key: []const u8, deflt: bool) bool {
         const value = readEnv(map, key) orelse return deflt;
         return std.ascii.eqlIgnoreCase(value, "true");
+    }
+
+    fn isExcluded(self: Env, test_name: []const u8) bool {
+        const exclude = self.exclude orelse return false;
+        var it = std.mem.splitScalar(u8, exclude, ',');
+        while (it.next()) |raw_part| {
+            const part = std.mem.trim(u8, raw_part, " \t");
+            if (part.len == 0) {
+                continue;
+            }
+            if (std.mem.indexOf(u8, test_name, part) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 };
 

@@ -27,6 +27,11 @@ pub fn reset() void {
     _ = arena.reset(.free_all);
 }
 
+pub fn threadPoolCount() u32 {
+    const env_value = std.c.getenv("THREAD_POOL_COUNT") orelse return 1000;
+    return std.fmt.parseInt(u32, std.mem.span(env_value), 10) catch 1000;
+}
+
 pub fn getRandom() std.Random.DefaultPrng {
     var seed: u64 = undefined;
     io.random(std.mem.asBytes(&seed));
